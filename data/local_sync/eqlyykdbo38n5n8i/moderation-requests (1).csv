@@ -1,0 +1,4 @@
+Тип запиту,Статус,ЦФО/Напрямок,Користувач,Email,Запитувана роль,Коментар,Створено,Оброблено,Ким оброблено,Email модератора
+access_request,Схвалено,ЦФО | Viyar Меблі,Максим Луковський,m_lukovskyi@viyar.ua,BoardViewer,grege,2025-09-15T14:09:55.717Z,2025-09-15T14:10:17.151Z,Максим Луковський,m_lukovskyi@viyar.ua
+access_request,Схвалено,ЦФО | Виробництво,Максим Луковський,m_lukovskyi@viyar.ua,BoardViewer,,2025-09-15T13:25:37.487Z,2025-09-15T13:38:49.238Z,,
+access_request,Відхилено,ЦФО | ViYar Tech,Максим Луковський,m_lukovskyi@viyar.ua,BoardViewer,,2025-09-15T13:05:05.131Z,2025-09-15T13:38:39.958Z,,

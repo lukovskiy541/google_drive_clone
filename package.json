@@ -2,20 +2,62 @@
   "name": "google_drive_clone",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3",
+    "desktop:dev": "electron-builder install-app-deps && electron .",
+    "desktop:dist": "next build && electron-builder",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.4.1",
+    "chokidar": "^4.0.3",
+    "date-fns": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "nanoid": "^5.1.6",
+    "next": "15.5.4",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "electron": "^31",
+    "electron-rebuild": "^3.2.9",
+    "electron-builder": "^25",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "@eslint/eslintrc": "^3"
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.4"
+  },
+  "build": {
+    "appId": "com.example.driveclient",
+    "productName": "Drive Client",
+    "asar": false,
+    "npmRebuild": true,
+    "files": [
+      "**/*",
+      "!**/__tests__/**",
+      "!src/hooks/__tests__/**",
+      "!.git/**",
+      "!.next/cache/**"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
+    },
+    "win": {
+      "target": ["nsis", "zip"]
+    }
   }
 }
