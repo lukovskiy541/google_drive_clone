@@ -13,8 +13,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Необхідна авторизація' }, { status: 401 });
   }
 
-  const profile = getEffectiveLocalSyncDir(user.id);
-  const lastSync = getLastSyncTimestamp(user.id);
+  const profile = await getEffectiveLocalSyncDir(user.id);
+  const lastSync = await getLastSyncTimestamp(user.id);
 
   return NextResponse.json({ profile, lastSync });
 }

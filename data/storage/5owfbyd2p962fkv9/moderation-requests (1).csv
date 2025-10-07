@@ -1,0 +1,6 @@
+Тип запиту,Статус,ЦФО/Напрямок,Користувач,Email,Запитувана роль,Коментар,Створено,Оброблено,Ким оброблено,Email модератора
+manual_role_change,Схвалено,Доска CFO,Максим Луковський,m_lukovskyi@viyar.ua,SuperAdmin,Роль призначено вручну,"30.09.2025, 14:49","30.09.2025, 14:49",Максим Луковський,m_lukovskyi@viyar.ua
+manual_role_change,Схвалено,ЦФО | ViYar Tech,Александр Сайко,a_saiko@viyar.ua,BoardEditor,Роль оновлено вручну,"30.09.2025, 14:48","30.09.2025, 14:48",Максим Луковський,m_lukovskyi@viyar.ua
+access_request,Схвалено,ЦФО | ViYar Tech,Александр Сайко,a_saiko@viyar.ua,BoardViewer,,"30.09.2025, 12:07","30.09.2025, 14:47",Максим Луковський,m_lukovskyi@viyar.ua
+manual_role_change,Схвалено,ЦФО | ViYar Tech,Максим Луковський,m_lukovskyi@viyar.ua,BoardEditor,Роль оновлено вручну,"30.09.2025, 11:58","30.09.2025, 11:58",Максим Луковський,m_lukovskyi@viyar.ua
+access_request,Схвалено,ЦФО | ViYar Tech,Максим Луковський,m_lukovskyi@viyar.ua,BoardViewer,оео,"30.09.2025, 11:54","30.09.2025, 11:55",Максим Луковський,m_lukovskyi@viyar.ua

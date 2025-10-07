@@ -6,8 +6,8 @@ const DATA_ROOT = path.join(process.cwd(), 'data');
 const REMOTE_ROOT = path.join(DATA_ROOT, 'storage');
 const DEFAULT_LOCAL_ROOT = path.join(DATA_ROOT, 'local_sync');
 
-function resolveLocalDir(userId) {
-  const profile = getSyncProfileByUserId(userId);
+async function resolveLocalDir(userId) {
+  const profile = await getSyncProfileByUserId(userId);
   if (profile?.local_dir) {
     return profile.local_dir;
   }
@@ -15,17 +15,12 @@ function resolveLocalDir(userId) {
   return path.join(DEFAULT_LOCAL_ROOT, userId);
 }
 
-export function ensureUserDirectories(userId) {
+export async function ensureUserDirectories(userId) {
   const remote = getRemoteDir(userId);
-  const local = getLocalDir(userId);
+  const local = await getLocalDir(userId);
 
-  if (!fs.existsSync(remote)) {
-    fs.mkdirSync(remote, { recursive: true });
-  }
-
-  if (!fs.existsSync(local)) {
-    fs.mkdirSync(local, { recursive: true });
-  }
+  await fs.promises.mkdir(remote, { recursive: true });
+  await fs.promises.mkdir(local, { recursive: true });
 
   return { remote, local };
 }
@@ -34,7 +29,7 @@ export function getRemoteDir(userId) {
   return path.join(REMOTE_ROOT, userId);
 }
 
-export function getLocalDir(userId) {
+export async function getLocalDir(userId) {
   return resolveLocalDir(userId);
 }
 
@@ -58,7 +53,7 @@ function buildUniqueStoredName(userId, baseName) {
 }
 
 export async function saveFileBuffer(userId, originalName, buffer) {
-  ensureUserDirectories(userId);
+  await ensureUserDirectories(userId);
   const baseName = buildStoredName(originalName);
   const storedName = buildUniqueStoredName(userId, baseName);
   const destination = path.join(getRemoteDir(userId), storedName);

@@ -1,55 +1,95 @@
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
+import { Pool } from 'pg';
 
-const dataDir = path.join(process.cwd(), 'data');
-const dbFile = path.join(dataDir, 'app.db');
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+if (!connectionString) {
+  throw new Error('POSTGRES_URL (or DATABASE_URL) is not set. Please define it in your environment.');
 }
 
-const db = new Database(dbFile);
-db.pragma('foreign_keys = ON');
+const pool = new Pool({ connectionString });
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    display_name TEXT NOT NULL,
-    created_at TEXT NOT NULL
-  );
+let schemaPromise = null;
 
-  CREATE TABLE IF NOT EXISTS files (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    filename TEXT NOT NULL,
-    original_name TEXT NOT NULL,
-    extension TEXT NOT NULL,
-    mime_type TEXT NOT NULL,
-    storage_path TEXT NOT NULL,
-    size_bytes INTEGER NOT NULL,
-    uploaded_by TEXT NOT NULL,
-    edited_by TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
+async function ensureSchema() {
+  if (!schemaPromise) {
+    schemaPromise = (async () => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
 
-  CREATE TABLE IF NOT EXISTS sync_profiles (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    local_dir TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        `);
 
-  CREATE TABLE IF NOT EXISTS sync_states (
-    user_id TEXT PRIMARY KEY,
-    last_synced_at TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-`);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS files (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            extension TEXT NOT NULL,
+            mime_type TEXT NOT NULL,
+            storage_path TEXT NOT NULL,
+            size_bytes BIGINT NOT NULL,
+            uploaded_by TEXT NOT NULL,
+            edited_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          )
+        `);
 
-export default db;
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS sync_profiles (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            local_dir TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        `);
+
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS sync_states (
+            user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            last_synced_at TEXT
+          )
+        `);
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    })().catch((error) => {
+      schemaPromise = null;
+      throw error;
+    });
+  }
+
+  return schemaPromise;
+}
+
+export async function query(text, params = []) {
+  await ensureSchema();
+  return pool.query(text, params);
+}
+
+export async function getClient() {
+  await ensureSchema();
+  return pool.connect();
+}
+
+export { pool };
+
+export default {
+  query,
+  getClient,
+  pool
+};

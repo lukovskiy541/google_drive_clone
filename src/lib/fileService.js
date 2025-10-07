@@ -4,8 +4,8 @@ import { normaliseExtension, canPreviewAsText, canPreviewAsImage, getDefaultMime
 import { runManualSync, ensureWatchers } from './syncService.js';
 
 export async function uploadFileForUser(user, file) {
-  ensureUserDirectories(user.id);
-  ensureWatchers(user.id);
+  await ensureUserDirectories(user.id);
+  await ensureWatchers(user.id);
 
   const originalName = file.name ?? 'untitled';
   const extension = normaliseExtension(originalName);
@@ -13,7 +13,7 @@ export async function uploadFileForUser(user, file) {
 
   const { destination, storedName } = await saveFileBuffer(user.id, originalName, buffer);
 
-  const inserted = insertFile({
+  const inserted = await insertFile({
     userId: user.id,
     filename: storedName,
     originalName,
@@ -28,24 +28,24 @@ export async function uploadFileForUser(user, file) {
   return inserted;
 }
 
-export function fetchFilesForUser(userId, options) {
-  ensureWatchers(userId);
+export async function fetchFilesForUser(userId, options) {
+  await ensureWatchers(userId);
   return listFiles(userId, options);
 }
 
-export function removeFileForUser(userId, fileId) {
-  const record = getFileById(fileId);
+export async function removeFileForUser(userId, fileId) {
+  const record = await getFileById(fileId);
   if (!record || record.user_id !== userId) {
     return null;
   }
 
   removeFile(record.storage_path);
-  deleteFile(fileId);
+  await deleteFile(fileId);
   return record;
 }
 
 export async function getPreviewPayload(userId, fileId) {
-  const record = getFileById(fileId);
+  const record = await getFileById(fileId);
   if (!record || record.user_id !== userId) {
     return null;
   }
@@ -78,7 +78,7 @@ export async function getPreviewPayload(userId, fileId) {
 }
 
 export async function updateTextFile(user, fileId, content) {
-  const record = getFileById(fileId);
+  const record = await getFileById(fileId);
   if (!record || record.user_id !== user.id) {
     return null;
   }
@@ -88,7 +88,7 @@ export async function updateTextFile(user, fileId, content) {
   }
 
   await writeTextToFile(record.storage_path, content);
-  const updated = updateFileEditedBy(fileId, user.display_name);
+  const updated = await updateFileEditedBy(fileId, user.display_name);
   return updated;
 }
 

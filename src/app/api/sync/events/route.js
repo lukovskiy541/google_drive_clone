@@ -11,7 +11,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Необхідна авторизація' }, { status: 401 });
   }
 
-  ensureWatchers(user.id);
+  await ensureWatchers(user.id);
 
   let unsubscribe = () => {};
 

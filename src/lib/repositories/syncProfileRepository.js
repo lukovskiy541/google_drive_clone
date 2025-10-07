@@ -1,31 +1,33 @@
 import { customAlphabet } from 'nanoid';
 import { formatISO } from 'date-fns';
-import db from '../db.js';
+import { query } from '../db.js';
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 18);
 
-export function getSyncProfileByUserId(userId) {
-  const stmt = db.prepare('SELECT * FROM sync_profiles WHERE user_id = ?');
-  return stmt.get(userId) ?? null;
+export async function getSyncProfileByUserId(userId) {
+  const { rows } = await query('SELECT * FROM sync_profiles WHERE user_id = $1', [userId]);
+  return rows[0] ?? null;
 }
 
-export function upsertSyncProfile(userId, localDir) {
-  const existing = getSyncProfileByUserId(userId);
+export async function upsertSyncProfile(userId, localDir) {
+  const existing = await getSyncProfileByUserId(userId);
 
   if (existing) {
-    const stmt = db.prepare('UPDATE sync_profiles SET local_dir = ? WHERE id = ?');
-    stmt.run(localDir, existing.id);
-    return { ...existing, local_dir: localDir };
+    const { rows } = await query(
+      'UPDATE sync_profiles SET local_dir = $1 WHERE id = $2 RETURNING *',
+      [localDir, existing.id]
+    );
+    return rows[0] ?? { ...existing, local_dir: localDir };
   }
 
   const id = nanoid();
   const createdAt = formatISO(new Date());
-  const stmt = db.prepare(
-    'INSERT INTO sync_profiles (id, user_id, local_dir, created_at) VALUES (?, ?, ?, ?)'
+  const { rows } = await query(
+    'INSERT INTO sync_profiles (id, user_id, local_dir, created_at) VALUES ($1, $2, $3, $4) RETURNING *',
+    [id, userId, localDir, createdAt]
   );
-  stmt.run(id, userId, localDir, createdAt);
 
-  return {
+  return rows[0] ?? {
     id,
     user_id: userId,
     local_dir: localDir,
@@ -33,7 +35,6 @@ export function upsertSyncProfile(userId, localDir) {
   };
 }
 
-export function deleteSyncProfile(id) {
-  const stmt = db.prepare('DELETE FROM sync_profiles WHERE id = ?');
-  stmt.run(id);
+export async function deleteSyncProfile(id) {
+  await query('DELETE FROM sync_profiles WHERE id = $1', [id]);
 }

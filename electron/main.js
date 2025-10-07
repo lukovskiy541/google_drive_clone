@@ -1,7 +1,5 @@
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
-const http = require('http');
-const next = require('next');
 
 // Improve HiDPI support and Wayland behavior, especially on Hyprland
 app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -23,30 +21,21 @@ if (isWayland) {
   app.commandLine.appendSwitch('enable-wayland-ime');
 }
 
-// Choose a random available port by letting the OS assign one (port 0)
-async function createNextServer(port = 0) {
-  const dev = !app.isPackaged;
-  // Resolve project root (where next.config.* and .next live)
-  const projectRoot = path.resolve(__dirname, '..');
-
-  const nextApp = next({ dev, dir: projectRoot });
-  const handle = nextApp.getRequestHandler();
-
-  await nextApp.prepare();
-
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => handle(req, res));
-    server.on('error', reject);
-    server.listen(port, '127.0.0.1', () => {
-      const address = server.address();
-      const actualPort = typeof address === 'object' && address ? address.port : port;
-      resolve({ server, port: actualPort });
-    });
-  });
-}
-
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
+
+const targetUrl = (() => {
+  const explicit = process.env.DESKTOP_APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (explicit) {
+    return explicit;
+  }
+
+  if (app.isPackaged) {
+    throw new Error('DESKTOP_APP_URL is not set. Provide the deployment URL for the desktop shell.');
+  }
+
+  return 'http://localhost:3000';
+})();
 
 function createWindow(baseUrl) {
   mainWindow = new BrowserWindow({
@@ -80,32 +69,17 @@ app.on('window-all-closed', () => {
   }
 });
 
-let httpServerRef = null;
-
 app.whenReady().then(async () => {
   try {
-    const { server, port } = await createNextServer(0);
-    httpServerRef = server;
-    const baseUrl = `http://localhost:${port}`;
-    createWindow(baseUrl);
+    createWindow(targetUrl);
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        createWindow(baseUrl);
+        createWindow(targetUrl);
       }
     });
   } catch (err) {
-    console.error('Failed to start Next server inside Electron:', err);
+    console.error('Failed to launch desktop window:', err);
     app.quit();
-  }
-});
-
-app.on('before-quit', () => {
-  if (httpServerRef) {
-    try {
-      httpServerRef.close();
-    } catch (e) {
-      // ignore
-    }
   }
 });

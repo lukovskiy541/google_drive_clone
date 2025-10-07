@@ -72,17 +72,14 @@ function emitForUser(userId, payload) {
 }
 
 async function syncUserNow(userId) {
-  const user = findUserById(userId);
+  const user = await findUserById(userId);
   if (!user) {
     return { changes: 0, lastSyncedAt: null };
   }
 
-  const { remote, local } = ensureUserDirectories(userId);
+  const { remote, local } = await ensureUserDirectories(userId);
   const remoteFiles = listFilesInDir(remote);
   const localFiles = listFilesInDir(local);
-
-  const remoteNames = new Set(remoteFiles.map((f) => f.name));
-  const localNames = new Set(localFiles.map((f) => f.name));
 
   let changes = 0;
 
@@ -103,7 +100,7 @@ async function syncUserNow(userId) {
   }
 
   const timestamp = new Date().toISOString();
-  setLastSyncedAtForUser(userId, timestamp);
+  await setLastSyncedAtForUser(userId, timestamp);
 
   if (changes > 0) {
     for (const remoteFile of listFilesInDir(remote)) {
@@ -111,7 +108,7 @@ async function syncUserNow(userId) {
       const storagePath = path.join(remote, remoteFile.name);
       const stats = describeFileOnDisk(storagePath);
 
-      upsertFileFromSync(userId, {
+      await upsertFileFromSync(userId, {
         filename: remoteFile.name,
         originalName: remoteFile.name,
         extension,
@@ -146,12 +143,16 @@ function scheduleSync(userId) {
   debounceTimers.set(userId, timer);
 }
 
-export function ensureWatchers(userId) {
+export async function ensureWatchers(userId) {
   if (watchers.has(userId)) {
     return watchers.get(userId);
   }
 
-  const { remote, local } = ensureUserDirectories(userId);
+  const { remote, local } = await ensureUserDirectories(userId);
+
+  if (watchers.has(userId)) {
+    return watchers.get(userId);
+  }
 
   const remoteWatcher = chokidar.watch(remote, { ignoreInitial: true, depth: 0 });
   const localWatcher = chokidar.watch(local, { ignoreInitial: true, depth: 0 });
@@ -165,8 +166,9 @@ export function ensureWatchers(userId) {
     disposeWatchers(userId);
   };
 
-  watchers.set(userId, { remoteWatcher, localWatcher, cleanup });
-  return watchers.get(userId);
+  const watcherRef = { remoteWatcher, localWatcher, cleanup };
+  watchers.set(userId, watcherRef);
+  return watcherRef;
 }
 
 export function subscribeToSync(userId, callback) {
@@ -182,23 +184,23 @@ export async function runManualSync(userId) {
   return syncUserNow(userId);
 }
 
-export function touchFileRecord(userId, storagePath) {
-  const record = getFileByPath(userId, storagePath);
+export async function touchFileRecord(userId, storagePath) {
+  const record = await getFileByPath(userId, storagePath);
   if (!record) return null;
   emitForUser(userId, { type: 'updated', fileId: record.id });
   return record;
 }
 
-export function getEffectiveLocalSyncDir(userId) {
-  const profile = getSyncProfileByUserId(userId);
-  const effectiveDir = getLocalDir(userId);
+export async function getEffectiveLocalSyncDir(userId) {
+  const profile = await getSyncProfileByUserId(userId);
+  const effectiveDir = await getLocalDir(userId);
   return {
     localDir: effectiveDir,
     isCustom: Boolean(profile?.local_dir)
   };
 }
 
-export function getLastSyncTimestamp(userId) {
+export async function getLastSyncTimestamp(userId) {
   return getLastSyncedAtForUser(userId);
 }
 
@@ -210,10 +212,10 @@ export async function updateLocalSyncDir(userId, targetDir) {
     throw new Error('Target path is not a directory');
   }
 
-  upsertSyncProfile(userId, resolvedDir);
-  ensureUserDirectories(userId);
+  await upsertSyncProfile(userId, resolvedDir);
+  await ensureUserDirectories(userId);
   disposeWatchers(userId);
-  ensureWatchers(userId);
+  await ensureWatchers(userId);
   const { lastSyncedAt } = await syncUserNow(userId);
 
   return {

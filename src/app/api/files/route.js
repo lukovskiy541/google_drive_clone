@@ -16,7 +16,7 @@ export async function GET(request) {
   const order = searchParams.get('order') ?? 'asc';
   const filter = searchParams.get('filter') ?? 'all';
 
-  const files = fetchFilesForUser(user.id, { sort, order, filter });
+  const files = await fetchFilesForUser(user.id, { sort, order, filter });
   return NextResponse.json({ files });
 }
 

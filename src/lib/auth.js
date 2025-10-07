@@ -65,5 +65,5 @@ export async function getCurrentUser() {
     return null;
   }
 
-  return findUserById(decoded.userId) ?? null;
+  return (await findUserById(decoded.userId)) ?? null;
 }

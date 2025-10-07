@@ -15,12 +15,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Будь ласка, заповніть усі поля' }, { status: 400 });
     }
 
-    if (findUserByUsername(username)) {
+    if (await findUserByUsername(username)) {
       return NextResponse.json({ error: 'Такий користувач вже існує' }, { status: 400 });
     }
 
     const hash = await hashPassword(password);
-    const user = createUser({ username, passwordHash: hash, displayName });
+    const user = await createUser({ username, passwordHash: hash, displayName });
 
     const token = issueToken({ userId: user.id, username: user.username });
     await setAuthCookie(token);

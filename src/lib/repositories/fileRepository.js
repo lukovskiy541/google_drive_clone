@@ -1,6 +1,6 @@
 import { customAlphabet } from 'nanoid';
 import { formatISO } from 'date-fns';
-import db from '../db.js';
+import { query } from '../db.js';
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 18);
 
@@ -11,7 +11,16 @@ const SORT_COLUMNS = {
   updatedAt: 'updated_at'
 };
 
-export function insertFile({
+function normaliseFileRow(row) {
+  if (!row) return null;
+
+  return {
+    ...row,
+    size_bytes: row.size_bytes == null ? row.size_bytes : Number(row.size_bytes)
+  };
+}
+
+export async function insertFile({
   userId,
   filename,
   originalName,
@@ -25,125 +34,142 @@ export function insertFile({
   const id = nanoid();
   const timestamp = formatISO(new Date());
 
-  const stmt = db.prepare(`
-    INSERT INTO files (
+  const { rows } = await query(
+    `
+      INSERT INTO files (
+        id,
+        user_id,
+        filename,
+        original_name,
+        extension,
+        mime_type,
+        storage_path,
+        size_bytes,
+        uploaded_by,
+        edited_by,
+        created_at,
+        updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+      )
+      RETURNING *
+    `,
+    [
       id,
-      user_id,
+      userId,
       filename,
-      original_name,
+      originalName,
       extension,
-      mime_type,
-      storage_path,
-      size_bytes,
-      uploaded_by,
-      edited_by,
-      created_at,
-      updated_at
-    ) VALUES (
-      @id,
-      @user_id,
-      @filename,
-      @original_name,
-      @extension,
-      @mime_type,
-      @storage_path,
-      @size_bytes,
-      @uploaded_by,
-      @edited_by,
-      @created_at,
-      @updated_at
-    )
-  `);
+      mimeType,
+      storagePath,
+      sizeBytes,
+      uploadedBy,
+      editedBy,
+      timestamp,
+      timestamp
+    ]
+  );
 
-  stmt.run({
-    id,
-    user_id: userId,
-    filename,
-    original_name: originalName,
-    extension,
-    mime_type: mimeType,
-    storage_path: storagePath,
-    size_bytes: sizeBytes,
-    uploaded_by: uploadedBy,
-    edited_by: editedBy,
-    created_at: timestamp,
-    updated_at: timestamp
-  });
-
-  return getFileById(id);
+  return normaliseFileRow(rows[0]);
 }
 
-export function listFiles(userId, { sort = 'extension', order = 'asc', filter = 'all' } = {}) {
+export async function listFiles(userId, { sort = 'extension', order = 'asc', filter = 'all' } = {}) {
   const column = SORT_COLUMNS[sort] ?? SORT_COLUMNS.extension;
   const safeOrder = order === 'desc' ? 'DESC' : 'ASC';
 
+  const params = [userId];
   let filterClause = '';
+
   if (filter === 'js-png') {
-    filterClause = "AND (extension = '.js' OR extension = '.png')";
+    filterClause = 'AND extension = ANY($2::text[])';
+    params.push(['.js', '.png']);
   }
 
-  const stmt = db.prepare(`
-    SELECT * FROM files
-    WHERE user_id = @user_id ${filterClause}
-    ORDER BY ${column} ${safeOrder}
-  `);
+  const { rows } = await query(
+    `
+      SELECT * FROM files
+      WHERE user_id = $1 ${filterClause}
+      ORDER BY ${column} ${safeOrder}
+    `,
+    params
+  );
 
-  return stmt.all({ user_id: userId });
+  return rows.map(normaliseFileRow);
 }
 
-export function getFileById(id) {
-  const stmt = db.prepare('SELECT * FROM files WHERE id = ?');
-  return stmt.get(id) ?? null;
+export async function getFileById(id) {
+  const { rows } = await query('SELECT * FROM files WHERE id = $1', [id]);
+  return normaliseFileRow(rows[0]);
 }
 
-export function getFileByPath(userId, storagePath) {
-  const stmt = db.prepare('SELECT * FROM files WHERE user_id = ? AND storage_path = ?');
-  return stmt.get(userId, storagePath) ?? null;
+export async function getFileByPath(userId, storagePath) {
+  const { rows } = await query('SELECT * FROM files WHERE user_id = $1 AND storage_path = $2', [userId, storagePath]);
+  return normaliseFileRow(rows[0]);
 }
 
-export function updateFileMetadata(id, updates) {
-  const existing = getFileById(id);
+export async function updateFileMetadata(id, updates) {
+  const existing = await getFileById(id);
   if (!existing) return null;
 
   const next = {
     ...existing,
     ...updates,
+    size_bytes: updates.size_bytes ?? updates.sizeBytes ?? existing.size_bytes,
     updated_at: updates.updated_at ?? formatISO(new Date())
   };
 
-  const stmt = db.prepare(`
-    UPDATE files SET
-      filename = @filename,
-      original_name = @original_name,
-      extension = @extension,
-      mime_type = @mime_type,
-      storage_path = @storage_path,
-      size_bytes = @size_bytes,
-      uploaded_by = @uploaded_by,
-      edited_by = @edited_by,
-      created_at = @created_at,
-      updated_at = @updated_at
-    WHERE id = @id
-  `);
+  const params = [
+    next.filename,
+    next.original_name,
+    next.extension,
+    next.mime_type,
+    next.storage_path,
+    next.size_bytes,
+    next.uploaded_by,
+    next.edited_by,
+    next.created_at,
+    next.updated_at,
+    id
+  ];
 
-  stmt.run(next);
-  return getFileById(id);
+  const { rows } = await query(
+    `
+      UPDATE files SET
+        filename = $1,
+        original_name = $2,
+        extension = $3,
+        mime_type = $4,
+        storage_path = $5,
+        size_bytes = $6,
+        uploaded_by = $7,
+        edited_by = $8,
+        created_at = $9,
+        updated_at = $10
+      WHERE id = $11
+      RETURNING *
+    `,
+    params
+  );
+
+  return normaliseFileRow(rows[0]);
 }
 
-export function updateFileEditedBy(id, editedBy) {
+export async function updateFileEditedBy(id, editedBy) {
   const timestamp = formatISO(new Date());
-  const stmt = db.prepare('UPDATE files SET edited_by = ?, updated_at = ? WHERE id = ?');
-  stmt.run(editedBy, timestamp, id);
-  return getFileById(id);
+  const { rows } = await query(
+    'UPDATE files SET edited_by = $1, updated_at = $2 WHERE id = $3 RETURNING *',
+    [editedBy, timestamp, id]
+  );
+
+  return normaliseFileRow(rows[0]);
 }
 
-export function deleteFile(id) {
-  const stmt = db.prepare('DELETE FROM files WHERE id = ?');
-  stmt.run(id);
+export async function deleteFile(id) {
+  await query('DELETE FROM files WHERE id = $1', [id]);
 }
 
-export function upsertFileFromSync(userId, payload) {
-  const existing = getFileByPath(userId, payload.storagePath);
+export async function upsertFileFromSync(userId, payload) {
+  const existing = await getFileByPath(userId, payload.storagePath);
 
   if (!existing) {
     return insertFile({

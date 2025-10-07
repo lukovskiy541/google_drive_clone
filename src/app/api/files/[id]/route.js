@@ -12,7 +12,7 @@ export async function GET(_request, { params }) {
     return NextResponse.json({ error: 'Необхідна авторизація' }, { status: 401 });
   }
 
-  const record = getFileById(params.id);
+  const record = await getFileById(params.id);
   if (!record || record.user_id !== user.id) {
     return NextResponse.json({ error: 'Файл не знайдено' }, { status: 404 });
   }
@@ -47,7 +47,7 @@ export async function DELETE(_request, { params }) {
     return NextResponse.json({ error: 'Необхідна авторизація' }, { status: 401 });
   }
 
-  const removed = removeFileForUser(user.id, params.id);
+  const removed = await removeFileForUser(user.id, params.id);
   if (!removed) {
     return NextResponse.json({ error: 'Файл не знайдено' }, { status: 404 });
   }

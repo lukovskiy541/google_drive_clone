@@ -14,7 +14,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Уведіть логін і пароль' }, { status: 400 });
     }
 
-    const user = findUserByUsername(username);
+    const user = await findUserByUsername(username);
     if (!user) {
       return NextResponse.json({ error: 'Невірний логін або пароль' }, { status: 401 });
     }
