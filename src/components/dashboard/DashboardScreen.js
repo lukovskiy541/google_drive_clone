@@ -23,6 +23,7 @@ export default function DashboardScreen() {
   const { user, logout } = useAuth();
   const { files, loading, error, order, filter, setOrder, setFilter, refresh } = useDriveFiles('extension');
   const refreshTimeoutRef = useRef(null);
+  const messageTimeoutRef = useRef(null);
   const [columns, setColumns] = useState(defaultColumns);
   const [selected, setSelected] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -123,8 +124,35 @@ export default function DashboardScreen() {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (!message) {
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = null;
+      }
+      return;
+    }
+    if (messageTimeoutRef.current) {
+      clearTimeout(messageTimeoutRef.current);
+    }
+    messageTimeoutRef.current = setTimeout(() => {
+      setMessage('');
+      messageTimeoutRef.current = null;
+    }, 4000);
+
+    return () => {
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = null;
+      }
+    };
+  }, [message]);
 
   useEffect(() => {
     const loadProfile = async () => {

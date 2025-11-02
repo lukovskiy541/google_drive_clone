@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
+import CodePreview from '@/components/common/CodePreview.js';
 import { formatSize } from '@/lib/utils/format.js';
 
 export default function PreviewPanel({ selectedFile, preview, loading, onRefresh, onSave, onClose }) {
@@ -50,20 +51,24 @@ export default function PreviewPanel({ selectedFile, preview, loading, onRefresh
       </div>
     );
   } else if (preview?.type === 'text') {
-    content = (
-      <>
-        <textarea
-          className="preview-textarea"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <div className="preview-actions">
-          <button className="btn" onClick={() => onSave(selectedFile, draft)} disabled={loading}>
-            Зберегти зміни
-          </button>
-        </div>
-      </>
-    );
+    if (selectedFile?.extension === '.java') {
+      content = <CodePreview language="java" value={draft} />;
+    } else {
+      content = (
+        <>
+          <textarea
+            className="preview-textarea"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <div className="preview-actions">
+            <button className="btn" onClick={() => onSave(selectedFile, draft)} disabled={loading}>
+              Зберегти зміни
+            </button>
+          </div>
+        </>
+      );
+    }
   } else if (preview?.type === 'image') {
     content = (
       <div className="preview-media">

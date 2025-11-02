@@ -16,6 +16,11 @@ emitter.setMaxListeners(50);
 const watchers = new Map();
 const debounceTimers = new Map();
 
+// Some filesystems (especially when syncing between local FS and the app bundle)
+// round `mtime` differently. A small tolerance keeps us from thinking the file is
+// newer on every pass, which would otherwise spam sync events in the desktop app.
+const MTIME_DRIFT_TOLERANCE_MS = 50;
+
 function disposeWatchers(userId) {
   const existing = watchers.get(userId);
   if (!existing) return;
@@ -55,7 +60,13 @@ function copyFileIfNewer(source, target) {
     shouldCopy = true;
   } else {
     const targetStat = fs.statSync(target);
-    shouldCopy = sourceStat.mtimeMs > targetStat.mtimeMs;
+    const timeDiff = sourceStat.mtimeMs - targetStat.mtimeMs;
+    const sizeChanged = sourceStat.size !== targetStat.size;
+
+    const definitelyNewer = timeDiff > MTIME_DRIFT_TOLERANCE_MS;
+    const smallDriftButDifferent = timeDiff > 0 && timeDiff <= MTIME_DRIFT_TOLERANCE_MS && sizeChanged;
+
+    shouldCopy = definitelyNewer || smallDriftButDifferent;
   }
 
   if (shouldCopy) {

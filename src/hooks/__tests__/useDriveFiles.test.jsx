@@ -34,7 +34,6 @@ describe('useDriveFiles', () => {
   test('loads files with default sort=extension, order=asc, filter=all', async () => {
     mockFetchOnce(async (url) => {
       expect(String(url)).toContain('/api/files?');
-      // Verify query params
       const u = new URL(String(url), 'http://localhost');
       expect(u.searchParams.get('sort')).toBe('extension');
       expect(u.searchParams.get('order')).toBe('asc');
@@ -51,7 +50,6 @@ describe('useDriveFiles', () => {
 
     render(<HookHarness />);
 
-    // Wait for loading to complete and files to appear
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
     const files = JSON.parse(screen.getByTestId('files').textContent);
     expect(files).toHaveLength(2);
@@ -60,7 +58,6 @@ describe('useDriveFiles', () => {
   });
 
   test('sorts by extension: ascending then descending (via order)', async () => {
-    // Implementation returns different arrays based on the `order` param.
     mockFetchOnce(async (url) => {
       const u = new URL(String(url), 'http://localhost');
       const order = u.searchParams.get('order');
@@ -77,13 +74,11 @@ describe('useDriveFiles', () => {
     });
 
     render(<HookHarness />);
-
-    // First load should be asc
+ 
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
     let files = JSON.parse(screen.getByTestId('files').textContent);
     expect(files.map(f => f.extension)).toEqual(['.js', '.png']);
 
-    // Trigger descending order
     fireEvent.click(screen.getByText('order-desc'));
 
     await waitFor(() => {
@@ -91,7 +86,6 @@ describe('useDriveFiles', () => {
       expect(files.map(f => f.extension)).toEqual(['.png', '.js']);
     });
 
-    // Back to ascending
     fireEvent.click(screen.getByText('order-asc'));
     await waitFor(() => {
       files = JSON.parse(screen.getByTestId('files').textContent);
@@ -113,8 +107,7 @@ describe('useDriveFiles', () => {
           ] })
         };
       }
-
-      // Default (all)
+ 
       return {
         ok: true,
         json: async () => ({ files: [
@@ -130,8 +123,6 @@ describe('useDriveFiles', () => {
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
     let files = JSON.parse(screen.getByTestId('files').textContent);
     expect(files.map(f => f.extension)).toEqual(['.js', '.png', '.txt']);
-
-    // Apply filter to js/png only
     fireEvent.click(screen.getByText('filter-js-png'));
 
     await waitFor(() => {
@@ -153,5 +144,29 @@ describe('useDriveFiles', () => {
     const files = JSON.parse(screen.getByTestId('files').textContent);
     expect(files).toEqual([]);
   });
-});
 
+  test('refetches with updated query params when switching sort order and filter', async () => {
+    const requests = [];
+    global.fetch = vi.fn(async (url) => {
+      const u = new URL(String(url), 'http://localhost');
+      requests.push(Object.fromEntries(u.searchParams.entries()));
+      return {
+        ok: true,
+        json: async () => ({ files: [] })
+      };
+    });
+
+    render(<HookHarness />);
+
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
+    expect(requests[0]).toMatchObject({ sort: 'extension', order: 'asc', filter: 'all' });
+
+    fireEvent.click(screen.getByText('order-desc'));
+    await waitFor(() => expect(requests).toHaveLength(2));
+    expect(requests[1]).toMatchObject({ sort: 'extension', order: 'desc', filter: 'all' });
+
+    fireEvent.click(screen.getByText('filter-js-png'));
+    await waitFor(() => expect(requests).toHaveLength(3));
+    expect(requests[2]).toMatchObject({ sort: 'extension', order: 'desc', filter: 'js-png' });
+  });
+});
