@@ -16,6 +16,7 @@ const isWayland = process.env.XDG_SESSION_TYPE === 'wayland'
   || (process.env.XDG_CURRENT_DESKTOP || '').toLowerCase().includes('hyprland');
 if (isWayland) {
   // Let Chromium pick Wayland if available; also enable server-side decorations
+  //test comment
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
   app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform,WaylandWindowDecorations');
   app.commandLine.appendSwitch('enable-wayland-ime');
